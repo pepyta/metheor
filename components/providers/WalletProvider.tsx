@@ -7,6 +7,7 @@ import { useState } from "react";
 import { PropsWithChildren } from "react";
 import { createContext } from "react";
 import WelcomeScreen from "../screens/WelcomeScreen";
+import * as SecureStore from "expo-secure-store";
 
 export type WalletProviderProps = PropsWithChildren<{}>;
 
@@ -17,7 +18,19 @@ type WalletContextType = {
 
 const WalletContext = createContext<WalletContextType>(null);
 
-export const useWallet = () => useContext(WalletContext);
+export const useWallet = () => {
+    const { wallet, setWallet: updateWallet } = useContext(WalletContext);
+
+    const setWallet = async (wallet: ethers.Wallet) => {
+        updateWallet(wallet);
+        await SecureStore.setItemAsync("wallet", wallet.mnemonic.phrase);
+    };
+
+    return {
+        wallet,
+        setWallet,
+    };
+};
 
 const WalletProvider = (props: WalletProviderProps) => {
     const [isFinished, setFinished] = useState(false);
@@ -28,10 +41,17 @@ const WalletProvider = (props: WalletProviderProps) => {
         try {
             setFinished(false);
 
-            // TODO: loading mechanism
+            // load from secure storage
+            const mnemonic = await SecureStore.getItemAsync("wallet");
+
+            // if already stored
+            if(mnemonic) { 
+                setWallet(ethers.Wallet.fromMnemonic(mnemonic));
+            }
 
             setFinished(true);
         } catch(e) {
+            console.log(e);
             setError(e);
         }
     };
